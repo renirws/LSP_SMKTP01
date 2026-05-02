@@ -1,6 +1,7 @@
 import React from "react";
 import { User, UserRole } from "../types";
-import { LogOut, Home, User as UserIcon, Settings, BarChart } from "lucide-react";
+import { LogOut, Home, User as UserIcon, Settings, BarChart, ShieldCheck } from "lucide-react";
+import { hasPermission } from "../lib/permissions";
 
 interface LayoutProps {
   user: User;
@@ -17,22 +18,28 @@ export function Layout({ user, onLogout, children }: LayoutProps) {
           <div className="w-10 h-10 bg-[#5A5A40] rounded-xl flex items-center justify-center text-white font-bold">
             LP
           </div>
-          <span className="font-bold text-lg leading-tight">E-LSP TJP1</span>
+          <span className="font-bold text-lg leading-tight text-[#1A1A1A]">E-LSP TJP1</span>
         </div>
 
         <nav className="flex-1 space-y-2">
           <NavItem icon={<Home size={20} />} label="Dashboard" active />
-          {user.role === UserRole.ASESI && (
+          
+          {hasPermission(user.role, "view_asesi_panel") && (
             <>
               <NavItem icon={<UserIcon size={20} />} label="Profil Saya" />
               <NavItem icon={<Settings size={20} />} label="Dokumen" />
             </>
           )}
-          {user.role === UserRole.ADMIN && (
+
+          {hasPermission(user.role, "view_admin_panel") && (
              <>
               <NavItem icon={<UserIcon size={20} />} label="Data Siswa" />
               <NavItem icon={<BarChart size={20} />} label="Verifikasi" />
             </>
+          )}
+
+          {user.role === UserRole.DIREKTUR && (
+            <NavItem icon={<ShieldCheck size={20} />} label="Keamanan" />
           )}
         </nav>
 

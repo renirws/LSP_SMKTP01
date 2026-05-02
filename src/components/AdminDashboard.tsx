@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { User, APL01Data } from "../types";
+import { User, APL01Data, UserRole } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, FileCheck, Calendar, PieChart, Search, Filter, Clock, CheckCircle, AlertCircle, X, ShieldCheck } from "lucide-react";
+import { PermissionGate } from "./ui/PermissionGate";
 
 interface AdminDashboardProps {
   user: User;
@@ -140,20 +141,27 @@ export function AdminDashboard({ user, apl01List, setApl01List }: AdminDashboard
                  </div>
 
                  <div className="pt-6 border-t border-gray-100 grid grid-cols-2 gap-4">
-                    <button 
-                      onClick={() => handleUpdateStatus(selectedApl.idReg, "DITERIMA")}
-                      className="py-3 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
-                    >
-                      <ShieldCheck size={18} />
-                      Terima (Valid)
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateStatus(selectedApl.idReg, "PERBAIKAN")}
-                      className="py-3 bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
-                    >
-                      <AlertCircle size={18} />
-                      Minta Perbaikan
-                    </button>
+                    <PermissionGate role={user.role} permission="verify_apl01">
+                      <button 
+                        onClick={() => handleUpdateStatus(selectedApl.idReg, "DITERIMA")}
+                        className="py-3 bg-green-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                      >
+                        <ShieldCheck size={18} />
+                        Terima (Valid)
+                      </button>
+                      <button 
+                        onClick={() => handleUpdateStatus(selectedApl.idReg, "PERBAIKAN")}
+                        className="py-3 bg-blue-500 text-white rounded-xl font-bold flex items-center justify-center gap-2"
+                      >
+                        <AlertCircle size={18} />
+                        Minta Perbaikan
+                      </button>
+                    </PermissionGate>
+                    {user.role === UserRole.DIREKTUR && !hasPermission(user.role, "verify_apl01") && (
+                      <div className="col-span-2 text-center text-xs text-gray-400 italic">
+                        Mode View-Only (Direktur tidak memiliki akses verifikasi teknis)
+                      </div>
+                    )}
                  </div>
               </div>
             </motion.div>
