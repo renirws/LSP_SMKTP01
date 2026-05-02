@@ -1,50 +1,78 @@
 /**
- * GOOGLE APPS SCRIPT: E-LSP SMK TANJUNG PRIOK 1
- * Deskripsi: Skrip untuk memetakan data Google Sheets ke Template PDF APL-01 & APL-02.
- * Petunjuk: Pasang skrip ini di Extensions > Apps Script pada Google Sheets Database.
+ * GOOGLE APPS SCRIPT: E-LSP FULL SYNC ENGINE
+ * Spreadsheet ID: 18omeFrGY29taKFJHpfqakZVqkentrcMgdtTYq_uiPMQ
  */
 
-const TEMPLATE_ID_APL01 = "YOUR_DOC_ID_APL01";
-const FOLDER_OUTPUT_ID = "YOUR_FOLDER_ID_PDF";
+const SS_ID = "18omeFrGY29taKFJHpfqakZVqkentrcMgdtTYq_uiPMQ";
 
-function generateLSPReport(idApl01) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetAPL01 = ss.getSheetByName("Data_APL01");
-  const data = sheetAPL01.getDataRange().getValues();
-  
-  let asesiData = null;
-  for(let i = 1; i < data.length; i++) {
-    if(data[i][0] == idApl01) { // Kolom ID_APL01 (PK)
-      asesiData = {
-        noReg: data[i][2],
-        tglDaftar: Utilities.formatDate(new Date(data[i][3]), "GMT+7", "dd-MM-yyyy"),
-        skema: data[i][4],
-        alamat: data[i][5],
-        pendidikan: data[i][6],
-        // Ambil Nama dari relasi User_Auth jika perlu, atau asumsikan ada di baris
-        nama: data[i][2] // Sesuaikan index jika nama ditambahkan ke APL01
-      };
-      break;
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.openById(SS_ID);
+    const action = e.parameter.action;
+    const sheetName = e.parameter.sheet;
+    
+    if (action === "read") {
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet) {
+        return createResponse({ error: true, message: "Sheet '" + sheetName + "' tidak ditemukan" });
+      }
+      
+      const data = sheet.getDataRange().getValues();
+      if (data.length < 2) return createResponse([]); 
+      
+      const headers = data.shift();
+      const result = data.map(row => {
+        const obj = {};
+        headers.forEach((header, i) => {
+          let val = row[i];
+          if (val instanceof Date) val = val.toISOString();
+          obj[header] = val;
+        });
+        return obj;
+      });
+      return createResponse(result);
     }
+  } catch (err) {
+    return createResponse({ error: true, message: err.toString() });
   }
+}
 
-  if(!asesiData) return "Data tidak ditemukan";
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.openById(SS_ID);
+    const params = JSON.parse(e.postData.contents);
+    const action = params.action;
+    const sheetName = params.sheet;
+    const sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) return createResponse({ success: false, message: "Sheet not found" });
 
-  const copyDoc = DriveApp.getFileById(TEMPLATE_ID_APL01).makeCopy(`APL01_${asesiData.nama}_${idApl01}`, DriveApp.getFolderById(FOLDER_OUTPUT_ID));
-  const doc = DocumentApp.openById(copyDoc.getId());
-  const body = doc.getBody();
+    const dataRows = sheet.getDataRange().getValues();
+    const headers = dataRows[0];
 
-  // Mapping dengan Tag Template
-  body.replaceText("{{NO_REGISTRASI}}", asesiData.noReg);
-  body.replaceText("{{TGL_DAFTAR}}", asesiData.tglDaftar);
-  body.replaceText("{{SKEMA}}", asesiData.skema);
-  body.replaceText("{{ALAMAT}}", asesiData.alamat);
-  body.replaceText("{{PENDIDIKAN}}", asesiData.pendidikan);
+    if (action === "create") {
+      const newRow = headers.map(header => params.data[header] || "");
+      sheet.appendRow(newRow);
+      return createResponse({ success: true, message: "Data created" });
+    }
 
-  doc.saveAndClose();
-  const pdfBlob = copyDoc.getAs('application/pdf');
-  const pdfFile = DriveApp.getFolderById(FOLDER_OUTPUT_ID).createFile(pdfBlob);
-  copyDoc.setTrashed(true);
+    if (action === "update") {
+      const rowIndex = dataRows.findIndex(row => row[0].toString() == params.id.toString());
+      if (rowIndex !== -1) {
+        headers.forEach((header, i) => {
+          if (params.data[header] !== undefined) {
+            sheet.getRange(rowIndex + 1, i + 1).setValue(params.data[header]);
+          }
+        });
+        return createResponse({ success: true, message: "Data updated" });
+      }
+    }
+  } catch (err) {
+    return createResponse({ success: false, message: err.toString() });
+  }
+}
 
-  return pdfFile.getUrl();
+function createResponse(content) {
+  return ContentService.createTextOutput(JSON.stringify(content))
+    .setMimeType(ContentService.MimeType.JSON);
 }

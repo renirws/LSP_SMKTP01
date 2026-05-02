@@ -6,25 +6,42 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { DirekturDashboard } from "./components/DirekturDashboard";
 import { LogIn, UserCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { sheetService } from "./services/sheetService";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initial Mock Data
   const [apl01List, setApl01List] = useState<APL01Data[]>([]);
   const [apl02List, setApl02List] = useState<APL02Data[]>([]);
 
   useEffect(() => {
-    // Simulate initial load
-    setTimeout(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      const apl01Data = await sheetService.read("Data_APL01");
+      const apl02Data = await sheetService.read("Data_APL02");
+      
+      // Mapping raw headers to our camelCase camelCase types
+      setApl01List(apl01Data.map((d: any) => ({
+        idReg: d.ID_APL01,
+        userId: d.UserID,
+        namaLengkap: d.Nama_Lengkap || "Asesi", // Fallback
+        nik: d.NISN_NIK || d.NIK,
+        tempatLahir: d.Tempat_Lahir || "-",
+        tglLahir: d.Tgl_Daftar,
+        alamat: d.Alamat,
+        skemaPilihan: d.Nama_Skema,
+        statusVerifikasi: d.Status_Verifikasi_Admin || "MENUNGGU"
+      })));
+      
       setLoading(false);
-    }, 1000);
+    };
+    fetchData();
   }, []);
 
   const handleLogin = (role: UserRole) => {
     setUser({
-      id: Math.random().toString(36).substr(2, 9),
+      id: "USER-001", // In real version, lookup from User_Auth sheet
       email: `${role.toLowerCase()}@smktjp01.sch.id`,
       role: role,
       nama: role === UserRole.ASESI ? "Budi Siswanto" : role === UserRole.ADMIN ? "Admin LSP" : "Drs. H. Mulyadi (Direktur)"
@@ -32,6 +49,35 @@ export default function App() {
   };
 
   const handleLogout = () => setUser(null);
+
+  const syncApl01 = async (data: APL01Data) => {
+    await sheetService.create("Data_APL01", {
+      ID_APL01: data.idReg,
+      UserID: data.userId,
+      No_Registrasi: data.idReg,
+      Tgl_Daftar: new Date().toISOString(),
+      Nama_Skema: data.skemaPilihan,
+      Alamat: data.alamat,
+      Status_Verifikasi_Admin: data.statusVerifikasi,
+      NISN_NIK: data.nik
+    });
+    setApl01List(prev => [...prev, data]);
+  };
+
+  const syncApl02 = async (data: APL02Data) => {
+    // In real app, we would loop through assessments. Here we simplify for a single record or first unit
+    for (const unit of data.assessments) {
+      await sheetService.create("Data_APL02", {
+        ID_APL02: `ASM-${unit.unitId}-${data.idReg}`,
+        ID_APL01: data.idReg,
+        Kode_Unit: unit.unitId,
+        Status_K_BK: unit.isCompetent ? "K" : "BK",
+        Bukti_Relevan_Link: unit.evidenceLink,
+        Rekomendasi_Asesor: "VALIDASI-AI"
+      });
+    }
+    setApl02List(prev => [...prev, data]);
+  };
 
   if (loading) {
     return (
@@ -119,9 +165,9 @@ export default function App() {
           <AsesiDashboard 
             user={user} 
             apl01List={apl01List} 
-            setApl01List={setApl01List}
+            setApl01List={syncApl01 as any} 
             apl02List={apl02List}
-            setApl02List={setApl02List}
+            setApl02List={syncApl02 as any}
           />
         )}
         {user.role === UserRole.ADMIN && (
