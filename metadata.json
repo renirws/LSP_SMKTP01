@@ -1,0 +1,8 @@
+{
+  "name": "E-LSP SMK Tanjung Priok 1",
+  "description": "Sistem Manajemen LSP SMK Tanjung Priok 1 - Digitalisasi Pendaftaran (APL-01), Penilaian Mandiri (APL-02), dan Verifikasi Portofolio AI untuk Skema Junio Operator Desain Grafis.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
