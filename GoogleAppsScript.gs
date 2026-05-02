@@ -20,7 +20,9 @@ function doGet(e) {
       const data = sheet.getDataRange().getValues();
       if (data.length < 2) return createResponse([]); 
       
-      const headers = data.shift();
+      // Normalisasi Header: Trim dan hapus spasi berlebih
+      const headers = data.shift().map(h => h.toString().trim()); 
+      
       const result = data.map(row => {
         const obj = {};
         headers.forEach((header, i) => {
@@ -48,7 +50,8 @@ function doPost(e) {
     if (!sheet) return createResponse({ success: false, message: "Sheet not found" });
 
     const dataRows = sheet.getDataRange().getValues();
-    const headers = dataRows[0];
+    // Normalisasi headers untuk penulisan data yang konsisten
+    const headers = dataRows[0].map(h => h.toString().trim());
 
     if (action === "create") {
       const newRow = headers.map(header => params.data[header] || "");
@@ -57,7 +60,7 @@ function doPost(e) {
     }
 
     if (action === "update") {
-      const rowIndex = dataRows.findIndex(row => row[0].toString() == params.id.toString());
+      const rowIndex = dataRows.findIndex(row => row[0].toString().trim() == params.id.toString().trim());
       if (rowIndex !== -1) {
         headers.forEach((header, i) => {
           if (params.data[header] !== undefined) {

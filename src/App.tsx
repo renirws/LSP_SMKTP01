@@ -19,65 +19,86 @@ export default function App() {
   const [apl02List, setApl02List] = useState<APL02Data[]>([]);
 
   // Function to load business data after login
-  const loadBusinessData = async () => {
+  const loadBusinessData = async (users?: any[]) => {
     setLoading(true);
     try {
+      const usersData = users || await sheetService.read("User_Auth");
       const apl01Data = await sheetService.read("Data_APL01");
       const apl02Data = await sheetService.read("Data_APL02");
       
-      setApl01List(apl01Data.map((d: any) => ({
-        idReg: d.ID_APL01,
-        userId: d.UserID,
-        namaLengkap: d.Nama_Lengkap || "Asesi",
-        nik: d.NISN_NIK || d.NIK,
-        tempatLahir: d.Tempat_Lahir || "-",
-        tglLahir: d.Tgl_Daftar,
-        alamat: d.Alamat || "-",
-        skemaPilihan: d.Nama_Skema || "-",
-        statusVerifikasi: d.Status_Verifikasi_Admin || "MENUNGGU"
-      })));
+      const mappedApl01 = apl01Data.map((d: any) => {
+        const owner = usersData.find((u: any) => u.UserID === d.UserID);
+        return {
+          idReg: d.ID_APL01,
+          userId: d.UserID,
+          namaLengkap: owner ? owner.Nama_Lengkap : "Unknown",
+          nik: owner ? owner.NISN_NIK : "-",
+          tempatLahir: "-", // Not in APL01 schema requested
+          tglLahir: d.Tgl_Daftar,
+          alamat: d.Alamat || "-",
+          skemaPilihan: d.Nama_Skema || "-",
+          statusVerifikasi: d.Status_Verifikasi_Admin || "MENUNGGU"
+        };
+      });
+
+      setApl01List(mappedApl01);
+      // Mapping APL02 would go here if needed in state
     } catch (err) {
       console.error("Gagal memuat data bisnis:", err);
     }
     setLoading(false);
   };
 
-  useEffect(() => {
-    // Just simple warm-up or check if we have a session
-    setInitialLoading(false);
-  }, []);
-
   const handleLogin = async (username: string, pass: string) => {
     setLoading(true);
     setLoginError(null);
     try {
       const usersRaw = await sheetService.read("User_Auth");
-      const foundUser = usersRaw.find((u: any) => 
-        u.Username.toString() === username && u.Password_Hash.toString() === pass
-      );
+      console.log("Data User dari Sheet:", usersRaw);
+      
+      // Cari kolom Username dan Password_Hash secara cerdas (case-insensitive)
+      const foundUser = usersRaw.find((u: any) => {
+        // Cari key yang mengandung kata 'user' dan 'pass'
+        const keys = Object.keys(u);
+        const userKey = keys.find(k => k.toLowerCase().includes('user'));
+        const passKey = keys.find(k => k.toLowerCase().includes('pass'));
+        
+        if (!userKey || !passKey) return false;
+
+        const uName = (u[userKey] || "").toString().trim().toLowerCase();
+        const uPass = (u[passKey] || "").toString().trim();
+        
+        return uName === username.trim().toLowerCase() && uPass === pass.trim();
+      });
 
       if (foundUser) {
-        if (foundUser.Status_Aktif === "FALSE" || foundUser.Status_Aktif === false) {
-          setLoginError("Akun Anda sedang dinonaktifkan oleh Direktur.");
+        // Cari kolom status aktif
+        const keys = Object.keys(foundUser);
+        const statusKey = keys.find(k => k.toLowerCase().includes('status'));
+        const statusValue = statusKey ? (foundUser[statusKey] || "").toString().toUpperCase() : "TRUE";
+
+        if (statusValue === "FALSE" || statusValue === "NON-AKTIF" || statusValue === "NONAKTIF") {
+          setLoginError("Akun Anda sedang dinonaktifkan.");
           setLoading(false);
           return;
         }
 
         const newUser: User = {
-          id: foundUser.UserID,
-          username: foundUser.Username,
-          email: `${foundUser.Username.toLowerCase()}@smktjp01.sch.id`,
-          role: foundUser.Role as UserRole,
-          nama: foundUser.Nama_Lengkap
+          id: foundUser.UserID || foundUser.UserID || "UID",
+          username: foundUser.Username || foundUser.username || username,
+          email: `${username}@smktjp01.sch.id`,
+          role: (foundUser.Role || foundUser.role || "ASESI").toString().toUpperCase() as UserRole,
+          nama: foundUser.Nama_Lengkap || foundUser.nama || "User LSP"
         };
 
         setUser(newUser);
-        await loadBusinessData();
+        await loadBusinessData(usersRaw);
       } else {
-        setLoginError("Kredensial salah. Periksa Username & Password.");
+        setLoginError("Username atau Password tidak cocok dengan database.");
       }
     } catch (err) {
-      setLoginError("Gangguan koneksi ke Database SMK TJP 1.");
+      console.error("Login Error:", err);
+      setLoginError("Gagal mengambil data dari Google Sheets. Cek koneksi.");
     }
     setLoading(false);
   };
@@ -88,6 +109,11 @@ export default function App() {
     setApl02List([]);
   };
 
+  useEffect(() => {
+    // Just simple warm-up
+    setInitialLoading(false);
+  }, []);
+
   const syncApl01 = async (data: APL01Data) => {
     await sheetService.create("Data_APL01", {
       ID_APL01: data.idReg,
@@ -96,22 +122,24 @@ export default function App() {
       Tgl_Daftar: new Date().toISOString(),
       Nama_Skema: data.skemaPilihan,
       Alamat: data.alamat,
+      Pendidikan: "SMK (Siswa Aktif)",
       Status_Verifikasi_Admin: data.statusVerifikasi,
-      NISN_NIK: data.nik
+      Tanda_Tangan_Asesi: data.ttdDigital || "SIGNED_DIGITALLY"
     });
     setApl01List(prev => [...prev, data]);
   };
 
   const syncApl02 = async (data: APL02Data) => {
-    // In real app, we would loop through assessments. Here we simplify for a single record or first unit
     for (const unit of data.assessments) {
       await sheetService.create("Data_APL02", {
-        ID_APL02: `ASM-${unit.unitId}-${data.idReg}`,
+        ID_APL02: `ASM-${Math.random().toString(36).substr(2, 5)}`,
         ID_APL01: data.idReg,
         Kode_Unit: unit.unitId,
+        Judul_Unit: "Unit Kompetensi " + unit.unitId,
         Status_K_BK: unit.isCompetent ? "K" : "BK",
         Bukti_Relevan_Link: unit.evidenceLink,
-        Rekomendasi_Asesor: "VALIDASI-AI"
+        Rekomendasi_Asesor: unit.aiVerificationStatus === "VALID" ? "Direkomendasikan (AI Validated)" : "Belum Direkomendasikan",
+        Tanda_Tangan_Asesor: "SYSTEM_AI"
       });
     }
     setApl02List(prev => [...prev, data]);

@@ -3,6 +3,7 @@ import { User, APL01Data, UserRole } from "../types";
 import { motion, AnimatePresence } from "motion/react";
 import { Users, FileCheck, Calendar, PieChart, Search, Filter, Clock, CheckCircle, AlertCircle, X, ShieldCheck } from "lucide-react";
 import { PermissionGate } from "./ui/PermissionGate";
+import { hasPermission } from "../lib/permissions";
 
 interface AdminDashboardProps {
   user: User;
