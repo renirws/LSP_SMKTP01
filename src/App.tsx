@@ -4,51 +4,89 @@ import { Layout } from "./components/Layout";
 import { AsesiDashboard } from "./components/AsesiDashboard";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { DirekturDashboard } from "./components/DirekturDashboard";
+import { LoginForm } from "./components/LoginForm";
 import { LogIn, UserCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { sheetService } from "./services/sheetService";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   const [apl01List, setApl01List] = useState<APL01Data[]>([]);
   const [apl02List, setApl02List] = useState<APL02Data[]>([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+  // Function to load business data after login
+  const loadBusinessData = async () => {
+    setLoading(true);
+    try {
       const apl01Data = await sheetService.read("Data_APL01");
       const apl02Data = await sheetService.read("Data_APL02");
       
-      // Mapping raw headers to our camelCase camelCase types
       setApl01List(apl01Data.map((d: any) => ({
         idReg: d.ID_APL01,
         userId: d.UserID,
-        namaLengkap: d.Nama_Lengkap || "Asesi", // Fallback
+        namaLengkap: d.Nama_Lengkap || "Asesi",
         nik: d.NISN_NIK || d.NIK,
         tempatLahir: d.Tempat_Lahir || "-",
         tglLahir: d.Tgl_Daftar,
-        alamat: d.Alamat,
-        skemaPilihan: d.Nama_Skema,
+        alamat: d.Alamat || "-",
+        skemaPilihan: d.Nama_Skema || "-",
         statusVerifikasi: d.Status_Verifikasi_Admin || "MENUNGGU"
       })));
-      
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  const handleLogin = (role: UserRole) => {
-    setUser({
-      id: "USER-001", // In real version, lookup from User_Auth sheet
-      email: `${role.toLowerCase()}@smktjp01.sch.id`,
-      role: role,
-      nama: role === UserRole.ASESI ? "Budi Siswanto" : role === UserRole.ADMIN ? "Admin LSP" : "Drs. H. Mulyadi (Direktur)"
-    });
+    } catch (err) {
+      console.error("Gagal memuat data bisnis:", err);
+    }
+    setLoading(false);
   };
 
-  const handleLogout = () => setUser(null);
+  useEffect(() => {
+    // Just simple warm-up or check if we have a session
+    setInitialLoading(false);
+  }, []);
+
+  const handleLogin = async (username: string, pass: string) => {
+    setLoading(true);
+    setLoginError(null);
+    try {
+      const usersRaw = await sheetService.read("User_Auth");
+      const foundUser = usersRaw.find((u: any) => 
+        u.Username.toString() === username && u.Password_Hash.toString() === pass
+      );
+
+      if (foundUser) {
+        if (foundUser.Status_Aktif === "FALSE" || foundUser.Status_Aktif === false) {
+          setLoginError("Akun Anda sedang dinonaktifkan oleh Direktur.");
+          setLoading(false);
+          return;
+        }
+
+        const newUser: User = {
+          id: foundUser.UserID,
+          username: foundUser.Username,
+          email: `${foundUser.Username.toLowerCase()}@smktjp01.sch.id`,
+          role: foundUser.Role as UserRole,
+          nama: foundUser.Nama_Lengkap
+        };
+
+        setUser(newUser);
+        await loadBusinessData();
+      } else {
+        setLoginError("Kredensial salah. Periksa Username & Password.");
+      }
+    } catch (err) {
+      setLoginError("Gangguan koneksi ke Database SMK TJP 1.");
+    }
+    setLoading(false);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setApl01List([]);
+    setApl02List([]);
+  };
 
   const syncApl01 = async (data: APL01Data) => {
     await sheetService.create("Data_APL01", {
@@ -79,7 +117,7 @@ export default function App() {
     setApl02List(prev => [...prev, data]);
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#F5F5F0]">
         <motion.div
@@ -93,68 +131,11 @@ export default function App() {
 
   if (!user) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F5F5F0] p-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 border border-gray-100"
-        >
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-[#5A5A40] rounded-2xl flex items-center justify-center text-white">
-              <LogIn size={40} />
-            </div>
-          </div>
-          <h1 className="text-2xl font-bold text-center text-[#1A1A1A] mb-2 font-sans">E-LSP SMK Tanjung Priok 1</h1>
-          <p className="text-gray-500 text-center mb-8 font-sans">Silakan pilih akses anda</p>
-          
-          <div className="space-y-4">
-            <button
-              onClick={() => handleLogin(UserRole.ASESI)}
-              className="w-full flex items-center justify-between p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-[#5A5A40] hover:bg-[#F5F5F0] transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-white">
-                  <UserCircle />
-                </div>
-                <div className="text-left">
-                  <span className="block font-bold text-[#1A1A1A]">Siswa / Asesi</span>
-                  <span className="text-xs text-gray-500 italic">Pendaftaran & Penilaian Mandiri</span>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleLogin(UserRole.ADMIN)}
-              className="w-full flex items-center justify-between p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-[#5A5A40] hover:bg-[#F5F5F0] transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600 group-hover:bg-white">
-                  <UserCircle />
-                </div>
-                <div className="text-left">
-                  <span className="block font-bold text-[#1A1A1A]">Admin LSP</span>
-                  <span className="text-xs text-gray-500 italic">Verifikasi Data & Penjadwalan</span>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => handleLogin(UserRole.DIREKTUR)}
-              className="w-full flex items-center justify-between p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-[#5A5A40] hover:bg-[#F5F5F0] transition-all group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 group-hover:bg-white">
-                  <UserCircle />
-                </div>
-                <div className="text-left">
-                  <span className="block font-bold text-[#1A1A1A]">Direktur LSP</span>
-                  <span className="text-xs text-gray-500 italic">Dashboard Statistik & Laporan</span>
-                </div>
-              </div>
-            </button>
-          </div>
-        </motion.div>
-      </div>
+      <LoginForm 
+        onLogin={handleLogin} 
+        error={loginError} 
+        loading={loading} 
+      />
     );
   }
 
