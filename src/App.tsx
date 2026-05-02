@@ -101,13 +101,14 @@ export default function App() {
       console.error("Critical Login Error:", err);
       if (err.message === "FAILED_TO_FETCH") {
         setLoginError(
-          "Koneksi Gagal (Failed to Fetch).\n" +
-          "1. Pastikan URL di Secrets benar (tanpa tanda kutip).\n" +
-          "2. Pastikan Apps Script di-deploy ke 'Anyone' (Bukan 'Anyone within organization').\n" +
-          "3. Jika Anda menggunakan Akun Kantor/Sekolah, coba ganti ke Akun Gmail Pribadi untuk men-deploy Apps Script."
+          "Koneksi Gagal (Failed to Fetch).\n\n" +
+          "Analisa SEO Senior:\n" +
+          "1. URL di Secrets mengandung spasi atau karakter ilegal.\n" +
+          "2. Akun BSI.ac.id Anda membatasi akses 'Anyone' (Hanya untuk internal).\n" +
+          "3. Coba deploy ulang GAS menggunakan Gmail Pribadi (@gmail.com) jika akun kerja memblokir akses publik."
         );
       } else {
-        setLoginError("Terjadi kesalahan sistem. Silakan coba lagi.");
+        setLoginError("Terjadi kesalahan sistem (" + (err.message || "Unknown") + "). Silakan hubungi: widyastutireni29@gmail.com");
       }
     }
     setLoading(false);

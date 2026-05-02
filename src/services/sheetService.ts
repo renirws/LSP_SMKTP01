@@ -41,13 +41,19 @@ export const sheetService = {
       const separator = API_URL.includes("?") ? "&" : "?";
       const fetchUrl = `${API_URL}${separator}action=read&sheet=${sheetName}&t=${timestamp}`;
 
-      // Menggunakan fetch standar tanpa headers tambahan untuk menghindari preflight CORS yang berat
+      console.log(`[SEO-Debug] Fetching from: ${sheetName}`);
+      
       const response = await fetch(fetchUrl, {
         method: 'GET',
         mode: 'cors',
+        credentials: 'omit', // Penting agar tidak terblokir kebijakan cookie pihak ketiga
         redirect: 'follow'
       });
       
+      if (!response.ok) {
+        throw new Error(`HTTP_ERROR_${response.status}`);
+      }
+
       const text = await response.text();
       
       // Jika response diawali <!DOCTYPE, berarti dialihkan ke halaman login Google (Akses Belum 'Anyone')
