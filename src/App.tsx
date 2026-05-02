@@ -88,7 +88,7 @@ export default function App() {
         setUser({
           id: foundUser.UserID || foundUser.id || "UID",
           username: username.toLowerCase(),
-          email: username.toLowerCase() === "admin_lsp" ? "widyastutireni29@gmail.com" : `${username.toLowerCase()}@guru.smk.belajar.id`,
+          email: username.toLowerCase() === "admin_lsp" ? "widyastutireni29@gmail.com" : `${username.toLowerCase()}@gmail.com`,
           role: (foundUser.Role || foundUser.role || "ASESI").toString().toUpperCase() as UserRole,
           nama: foundUser.Nama_Lengkap || foundUser.nama || username
         });
@@ -99,16 +99,32 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Critical Login Error:", err);
-      if (err.message === "FAILED_TO_FETCH" || err.message?.toLowerCase().includes("fetch")) {
+      const isNetworkError = err.message === "FAILED_TO_FETCH" || 
+                           err.message === "FAILED_TO_FETCH_NETWORK" || 
+                           err.message?.toLowerCase().includes("fetch");
+                           
+      if (isNetworkError) {
         setLoginError(
-          "Koneksi Gagal (Failed to Fetch).\n\n" 
+          "Koneksi Database Gagal (Network Error).\n\n" +
+          "Solusi Pasti (Analisa SEO Senior):\n" +
+          "1. Masalah Akun Workspace: Akun @bsi.ac.id memblokir akses publik. Sangat disarankan Deploy ulang Apps Script menggunakan Gmail Pribadi (widyastutireni29@gmail.com).\n" +
+          "2. Menu Secrets: Link harus dimasukkan di tombol 'Settings' (Gear) -> 'Secrets'. Periksa apakah VITE_SHEET_API_URL sudah ada.\n" +
+          "3. Hilangkan Tanda Kutip: Saat memasukkan URL di Secrets, JANGAN sertakan tanda kutip (\") - cukup link aslinya saja.\n" +
+          "4. Deploy Ulang: Di Apps Script, klik 'Deploy' -> 'New Deployment' -> Select 'Web App' -> Access: 'Anyone'.\n" +
+          "5. Browser: Matikan fitur 'Block third-party cookies' di setelan browser."
         );
+      } else if (err.message === "API_URL_MISSING") {
+        setLoginError("Konfigurasi Hilang. VITE_SHEET_API_URL belum diatur di menu Secrets.");
       } else if (err.message === "AUTH_REQUIRED_BY_GOOGLE") {
-        setLoginError("Akses Terkunci. Apps Script meminta Login Google. Pastikan setelan 'Who has access' adalah 'Anyone'.");
+        setLoginError("Akses Terkunci. Apps Script meminta Login Google. Ini menandakan Akun Workspace memblokir akses publik. Gunakan widyastutireni29@gmail.com untuk Deploy GAS.");
+      } else if (err.message === "INVALID_JSON_RESPONSE") {
+        setLoginError("Respon Database Tidak Valid. Pastikan Apps Script Anda di-return menggunakan ContentService.createTextOutput dan JSON.stringify.");
+      } else if (err.message === "TIMEOUT") {
+        setLoginError("Koneksi Timeout (15 detik). Server Google sedang sibuk atau data terlalu besar. Coba segarkan halaman.");
       } else if (err.message === "URL_NOT_FOUND") {
         setLoginError("URL tidak ditemukan (404). Periksa kembali link Apps Script Anda di Secrets.");
       } else {
-        setLoginError("Terjadi kesalahan sistem (" + (err.message || "Unknown") + "). Silakan hubungi: widyastutireni29@gmail.com");
+        setLoginError("Terjadi kesalahan sistem (" + (err.message || "Unknown") + "). Silakan hubungi admin di widyastutireni29@gmail.com");
       }
     }
     setLoading(false);
