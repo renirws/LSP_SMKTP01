@@ -78,9 +78,14 @@ export function Layout({ user, onLogout, children }: LayoutProps) {
           </button>
         </header>
 
-        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full flex-1">
            {children}
         </div>
+
+        <footer className="p-6 border-t border-gray-200 text-center text-gray-500 text-xs">
+          <p>© 2024 LSP SMK Tanjung Priok 1. All Rights Reserved.</p>
+          <p className="mt-1">Technical Support: <a href="mailto:widyastutireni29@gmail.com" className="text-[#5A5A40] font-bold hover:underline">widyastutireni29@gmail.com</a></p>
+        </footer>
       </main>
 
       {/* Bottom Nav for Mobile */}

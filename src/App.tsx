@@ -54,11 +54,14 @@ export default function App() {
     setLoginError(null);
     try {
       const usersRaw = await sheetService.read("User_Auth");
-      console.log("Data User dari Sheet:", usersRaw);
       
-      // Cari kolom Username dan Password_Hash secara cerdas (case-insensitive)
+      if (!usersRaw || usersRaw.length === 0) {
+        setLoginError("Database User kosong atau API tidak merespon.");
+        setLoading(false);
+        return;
+      }
+
       const foundUser = usersRaw.find((u: any) => {
-        // Cari key yang mengandung kata 'user' dan 'pass'
         const keys = Object.keys(u);
         const userKey = keys.find(k => k.toLowerCase().includes('user'));
         const passKey = keys.find(k => k.toLowerCase().includes('pass'));
@@ -72,33 +75,40 @@ export default function App() {
       });
 
       if (foundUser) {
-        // Cari kolom status aktif
         const keys = Object.keys(foundUser);
         const statusKey = keys.find(k => k.toLowerCase().includes('status'));
-        const statusValue = statusKey ? (foundUser[statusKey] || "").toString().toUpperCase() : "TRUE";
+        const isInactive = statusKey && ["false", "non-aktif", "nonaktif", "off"].includes(foundUser[statusKey]?.toString().toLowerCase());
 
-        if (statusValue === "FALSE" || statusValue === "NON-AKTIF" || statusValue === "NONAKTIF") {
-          setLoginError("Akun Anda sedang dinonaktifkan.");
+        if (isInactive) {
+          setLoginError("Akun Anda telah dinonaktifkan.");
           setLoading(false);
           return;
         }
 
-        const newUser: User = {
-          id: foundUser.UserID || foundUser.UserID || "UID",
-          username: foundUser.Username || foundUser.username || username,
-          email: `${username}@smktjp01.sch.id`,
+        setUser({
+          id: foundUser.UserID || foundUser.id || "UID",
+          username: username.toLowerCase(),
+          email: username.toLowerCase() === "admin_lsp" ? "widyastutireni29@gmail.com" : `${username.toLowerCase()}@guru.smk.belajar.id`,
           role: (foundUser.Role || foundUser.role || "ASESI").toString().toUpperCase() as UserRole,
-          nama: foundUser.Nama_Lengkap || foundUser.nama || "User LSP"
-        };
-
-        setUser(newUser);
+          nama: foundUser.Nama_Lengkap || foundUser.nama || username
+        });
         await loadBusinessData(usersRaw);
       } else {
-        setLoginError("Username atau Password tidak cocok dengan database.");
+        setLoginError("Akses ditolak. Cek Username/Password atau pastikan data di Google Sheet sudah benar.");
+        console.warn("User tidak ditemukan di sheet User_Auth. Data yang terbaca:", usersRaw);
       }
-    } catch (err) {
-      console.error("Login Error:", err);
-      setLoginError("Gagal mengambil data dari Google Sheets. Cek koneksi.");
+    } catch (err: any) {
+      console.error("Critical Login Error:", err);
+      if (err.message === "FAILED_TO_FETCH") {
+        setLoginError(
+          "Koneksi Gagal (Failed to Fetch).\n" +
+          "1. Pastikan URL di Secrets benar (tanpa tanda kutip).\n" +
+          "2. Pastikan Apps Script di-deploy ke 'Anyone' (Bukan 'Anyone within organization').\n" +
+          "3. Jika Anda menggunakan Akun Kantor/Sekolah, coba ganti ke Akun Gmail Pribadi untuk men-deploy Apps Script."
+        );
+      } else {
+        setLoginError("Terjadi kesalahan sistem. Silakan coba lagi.");
+      }
     }
     setLoading(false);
   };

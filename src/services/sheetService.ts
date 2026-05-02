@@ -1,62 +1,71 @@
-let API_URL_RAW = import.meta.env.VITE_SHEET_API_URL?.trim() || "";
+let API_URL_RAW = (import.meta.env.VITE_SHEET_API_URL || "").trim();
 
-// Cek jika user tidak sengaja mempaste "VITE_SHEET_API_URL=" ke dalam secret
-if (API_URL_RAW.includes('="')) {
-  const match = API_URL_RAW.match(/="([^"]+)"/);
-  if (match) API_URL_RAW = match[1];
-} else if (API_URL_RAW.includes('=')) {
-  API_URL_RAW = API_URL_RAW.split('=')[1];
+// PEMBERSIHAN URL JITU (Menangani kesalahan copy-paste umum)
+function sanitizeUrl(rawUrl: string): string {
+  if (!rawUrl) return "";
+  
+  let clean = rawUrl;
+  // Jika user mempaste "VITE_SHEET_API_URL=https://..."
+  if (clean.includes("=")) {
+    const parts = clean.split("=");
+    clean = parts[parts.length - 1];
+  }
+  
+  // Hapus kutipan, spasi, dan titik koma
+  clean = clean.replace(/["';\s]/g, "");
+  
+  // Pastikan URL valid
+  if (clean.startsWith("http") && (clean.includes("script.google.com") || clean.includes("exec"))) {
+    return clean;
+  }
+  return "";
 }
 
-const API_URL = API_URL_RAW.replace(/["']/g, "").trim();
+const API_URL = sanitizeUrl(API_URL_RAW);
 
 if (!API_URL) {
-  console.error("VITE_SHEET_API_URL tidak ditemukan. Pastikan sudah diatur di menu Secrets.");
+  console.error("VITE_SHEET_API_URL tidak ditemukan atau tidak valid di menu Secrets.");
+} else {
+  console.log("Sheet Service initialized with API URL.");
 }
 
 export const sheetService = {
   async read(sheetName: string) {
     if (!API_URL) {
-      console.warn("API_URL is missing, skipping read for:", sheetName);
+      console.warn("API URL kosong. Periksa menu Secrets.");
       return [];
     }
+    
     try {
-      // Menambahkan cache-buster untuk menghindari data lama (stale)
       const timestamp = new Date().getTime();
-      const url = `${API_URL}?action=read&sheet=${sheetName}&t=${timestamp}`;
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const separator = API_URL.includes("?") ? "&" : "?";
+      const fetchUrl = `${API_URL}${separator}action=read&sheet=${sheetName}&t=${timestamp}`;
 
-      const response = await fetch(url, {
-        redirect: 'follow',
+      // Menggunakan fetch standar tanpa headers tambahan untuk menghindari preflight CORS yang berat
+      const response = await fetch(fetchUrl, {
         method: 'GET',
         mode: 'cors',
-        signal: controller.signal
+        redirect: 'follow'
       });
       
-      clearTimeout(timeoutId);
-      
       const text = await response.text();
-      // Verifikasi apakah yang didapat adalah JSON atau HTML Error
+      
+      // Jika response diawali <!DOCTYPE, berarti dialihkan ke halaman login Google (Akses Belum 'Anyone')
       if (text.trim().startsWith("<!DOCTYPE html>") || text.trim().startsWith("<html")) {
-        console.error(`Sheet error: Server mengembalikan HTML bukan JSON. Kemungkinan URL Apps Script salah atau izin akses bukan 'Anyone'.`, text.substring(0, 200));
+        console.error("GAS Error: Response adalah HTML. Akun Google mungkin masih terkunci atau URL salah.");
         return [];
       }
+
       try {
         const data = JSON.parse(text);
-        if (data && data.error) {
-          console.warn(`Server error for ${sheetName}:`, data.message);
-          return [];
-        }
         return Array.isArray(data) ? data : [];
-      } catch (parseError) {
-        console.error(`Gagal parsing JSON untuk ${sheetName}. Respons:`, text.substring(0, 500));
+      } catch (e) {
+        console.error("JSON Parsing Error dari Sheets. Periksa struktur kolom.");
         return [];
       }
     } catch (error) {
-      console.error(`Error reading ${sheetName}:`, error);
-      return [];
+      console.error(`Fetch Failure for ${sheetName}:`, error);
+      throw new Error("FAILED_TO_FETCH");
     }
   },
 
