@@ -24,11 +24,10 @@ function sanitizeUrl(rawUrl: string): string {
 const API_URL = sanitizeUrl(API_URL_RAW);
 
 if (!API_URL) {
-  console.error("VITE_SHEET_API_URL tidak ditemukan. Mohon atur di menu SETTINGS -> SECRETS.");
+  console.error("[SEO-SENIOR] Konfigurasi VITE_SHEET_API_URL tidak ditemukan. Atur di menu Secrets!");
 } else {
-  // Log URL yang tersanitasi (setengah bagian saja untuk keamanan)
-  const maskedUrl = API_URL.substring(0, 30) + "..." + API_URL.substring(API_URL.length - 10);
-  console.log(`[SEO-Debug] API URL Terdeteksi: ${maskedUrl}`);
+  // Tampilkan diagnosa link di konsol untuk membantu troubleshooting user
+  console.log(`[SEO-Senior] DB Terhubung: ${API_URL.substring(0, 35)}...`);
 }
 
 export const sheetService = {

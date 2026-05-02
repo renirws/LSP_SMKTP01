@@ -107,11 +107,11 @@ export default function App() {
         setLoginError(
           "Koneksi Database Gagal (Network Error).\n\n" +
           "Solusi Pasti (Analisa SEO Senior):\n" +
-          "1. Masalah Akun Workspace: Akun @bsi.ac.id memblokir akses publik. Sangat disarankan Deploy ulang Apps Script menggunakan Gmail Pribadi (widyastutireni29@gmail.com).\n" +
-          "2. Menu Secrets: Link harus dimasukkan di tombol 'Settings' (Gear) -> 'Secrets'. Periksa apakah VITE_SHEET_API_URL sudah ada.\n" +
-          "3. Hilangkan Tanda Kutip: Saat memasukkan URL di Secrets, JANGAN sertakan tanda kutip (\") - cukup link aslinya saja.\n" +
+          "1. Masalah Akun Workspace: Akun @bsi.ac.id memblokir akses publik. WAJIB Deploy ulang Apps Script menggunakan Gmail Pribadi (widyastutireni29@gmail.com).\n" +
+          "2. Menu Secrets: Link harus dimasukkan di tombol 'Settings' (Gear) -> 'Secrets'. Masukkan VITE_SHEET_API_URL di sana.\n" +
+          "3. Tanpa Tanda Kutip: Saat memasukkan URL di Secrets, JANGAN gunakan tanda kutip (\") - cukup link aslinya saja.\n" +
           "4. Deploy Ulang: Di Apps Script, klik 'Deploy' -> 'New Deployment' -> Select 'Web App' -> Access: 'Anyone'.\n" +
-          "5. Browser: Matikan fitur 'Block third-party cookies' di setelan browser."
+          "5. Browser: Jika memakai VPN atau Browser Brave, matikan fitur 'Shields' atau 'Tracking Protection'."
         );
       } else if (err.message === "API_URL_MISSING") {
         setLoginError("Konfigurasi Hilang. VITE_SHEET_API_URL belum diatur di menu Secrets.");
