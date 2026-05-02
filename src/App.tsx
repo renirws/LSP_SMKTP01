@@ -63,8 +63,8 @@ export default function App() {
 
       const foundUser = usersRaw.find((u: any) => {
         const keys = Object.keys(u);
-        const userKey = keys.find(k => k.toLowerCase().includes('user'));
-        const passKey = keys.find(k => k.toLowerCase().includes('pass'));
+        const userKey = keys.find(k => k.toLowerCase().includes('username'));
+        const passKey = keys.find(k => k.toLowerCase().includes('password_hash'));
         
         if (!userKey || !passKey) return false;
 
@@ -99,14 +99,14 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Critical Login Error:", err);
-      if (err.message === "FAILED_TO_FETCH") {
+      if (err.message === "FAILED_TO_FETCH" || err.message?.toLowerCase().includes("fetch")) {
         setLoginError(
-          "Koneksi Gagal (Failed to Fetch).\n\n" +
-          "Analisa SEO Senior:\n" +
-          "1. URL di Secrets mengandung spasi atau karakter ilegal.\n" +
-          "2. Akun BSI.ac.id Anda membatasi akses 'Anyone' (Hanya untuk internal).\n" +
-          "3. Coba deploy ulang GAS menggunakan Gmail Pribadi (@gmail.com) jika akun kerja memblokir akses publik."
+          "Koneksi Gagal (Failed to Fetch).\n\n" 
         );
+      } else if (err.message === "AUTH_REQUIRED_BY_GOOGLE") {
+        setLoginError("Akses Terkunci. Apps Script meminta Login Google. Pastikan setelan 'Who has access' adalah 'Anyone'.");
+      } else if (err.message === "URL_NOT_FOUND") {
+        setLoginError("URL tidak ditemukan (404). Periksa kembali link Apps Script Anda di Secrets.");
       } else {
         setLoginError("Terjadi kesalahan sistem (" + (err.message || "Unknown") + "). Silakan hubungi: widyastutireni29@gmail.com");
       }

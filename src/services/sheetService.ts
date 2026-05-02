@@ -41,36 +41,48 @@ export const sheetService = {
       const separator = API_URL.includes("?") ? "&" : "?";
       const fetchUrl = `${API_URL}${separator}action=read&sheet=${sheetName}&t=${timestamp}`;
 
-      console.log(`[SEO-Debug] Fetching from: ${sheetName}`);
+      console.log(`[SEO-Senior-Koneksi] Mencoba mengakses: ${sheetName}`);
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const response = await fetch(fetchUrl, {
         method: 'GET',
         mode: 'cors',
-        credentials: 'omit', // Penting agar tidak terblokir kebijakan cookie pihak ketiga
-        redirect: 'follow'
+        credentials: 'omit',
+        redirect: 'follow',
+        signal: controller.signal
+      }).catch(err => {
+        clearTimeout(timeoutId);
+        console.error("Fetch Exception:", err);
+        if (err.name === 'AbortError') throw new Error("TIMEOUT");
+        throw new Error("FAILED_TO_FETCH_NETWORK");
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP_ERROR_${response.status}`);
-      }
-
+      clearTimeout(timeoutId);
+      
       const text = await response.text();
       
-      // Jika response diawali <!DOCTYPE, berarti dialihkan ke halaman login Google (Akses Belum 'Anyone')
-      if (text.trim().startsWith("<!DOCTYPE html>") || text.trim().startsWith("<html")) {
-        console.error("GAS Error: Response adalah HTML. Akun Google mungkin masih terkunci atau URL salah.");
-        return [];
+      // Jika dialihkan ke halaman login google, berarti GAS belum 'Anyone'
+      if (text.includes("ServiceLogin") || text.includes("google-signin") || text.trim().startsWith("<!DOCTYPE html>")) {
+        console.error("DIAGNOSA: Apps Script memerlukan Login Google. Akses publik ditolak.");
+        throw new Error("AUTH_REQUIRED_BY_GOOGLE");
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP_${response.status}`);
       }
 
       try {
         const data = JSON.parse(text);
         return Array.isArray(data) ? data : [];
       } catch (e) {
-        console.error("JSON Parsing Error dari Sheets. Periksa struktur kolom.");
+        console.error("JSON Error: Format respon tidak valid.");
         return [];
       }
-    } catch (error) {
-      console.error(`Fetch Failure for ${sheetName}:`, error);
+    } catch (error: any) {
+      console.error(`Error Detailing (${sheetName}):`, error.message);
+      if (error.message === "AUTH_REQUIRED_BY_GOOGLE") throw error;
       throw new Error("FAILED_TO_FETCH");
     }
   },
